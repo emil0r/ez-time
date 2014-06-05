@@ -2,7 +2,6 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str]))
 
-
 (defn- get-timezone [data tz offset?]
   ;; get timezone if it exists in data
   ;; if it does not exist but tz is set and offset? is not nil
