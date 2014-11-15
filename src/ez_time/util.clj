@@ -38,7 +38,7 @@
 (defn month->ms [year month]
   (if (leap? year)
     (case month
-      12 31622400000 
+      12 31622400000
       11 28944000000
       10 26352000000
       9 23673600000
@@ -75,7 +75,7 @@
        :else year))))
 
 (defn ms->month [ms]
-  (let [year (milliseconds->year ms)
+  (let [year (ms->year ms)
         ms (- ms (* (get-days year) ms-per-day))]
     (if (leap? year)
       (cond
