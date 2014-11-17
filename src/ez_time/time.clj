@@ -3,22 +3,34 @@
             [clojure.string :as str]
             [ez-time.timezone :as tz]
             [ez-time.util :as util])
-  (:refer-clojure :exclude [second max min])
-  (:import (org.joda.time DateTime DateMidnight LocalDateTime
-                          YearMonth LocalDate)))
+  (:refer-clojure :exclude [max min format second]))
 
 
 
 (defprotocol EzPeriodProtocol
-  (get-milliseconds [instant period]))
+  (years [period])
+  (months [period])
+  (weeks [period])
+  (days [period])
+  (minutes [period])
+  (seconds [period])
+  (milliseconds [period])
+  (get-milliseconds [period instant]))
 
-(defrecord EzPeriod [year month month-rest week day hour minute second millisecond]
+(defrecord EzPeriod [years months month-rest weeks days hours minutes seconds milliseconds]
   EzPeriodProtocol
-  (get-milliseconds [instant
-                     {:keys [year month month-rest week day
+  (years [period] (:years period))
+  (months [period] (:months period))
+  (weeks [period] (:weeks period))
+  (days [period] (:days period))
+  (minutes [period] (:minutes period))
+  (seconds [period] (:seconds period))
+  (milliseconds [period] (:milliseconds period))
+  (get-milliseconds [{:keys [year month month-rest week day
                              hour minute second millisecond]
                       :or {year 0, month 0, week 0, day 0,
-                           hour 0, minute 0, second 0, millisecond 0}}]
+                           hour 0, minute 0, second 0, millisecond 0}}
+                     instant]
     (+ (* 365 24 3600000 year)
        (* 7 24 3600000 week)
        (* 24 3600000 day)
@@ -28,33 +40,57 @@
        millisecond)))
 
 (defprotocol EzTimeProtocol
-  (year [obj])
-  (month [obj])
-  (day [obj])
-  (hour [obj])
-  (minute [obj])
-  (second [obj])
-  (millisecond [obj])
+  (year [instant])
+  (month [instant])
+  (day [instant])
+  (hour [instant])
+  (minute [instant])
+  (second [instant])
+  (millisecond [instant])
+  (raw-milliseconds [instant])
 
   (after? [a b])
   (before? [a b])
-  (plus [obj period] [obj period perodic?])
-  (minus [obj period] [obj period perodic?])
-  (create-period [a b])
-  (leap? [obj]))
+  (plus [instant period] [instant period perodic?])
+  (minus [instant period] [instant period perodic?])
+  (leap? [instant]))
 
 (defrecord EzTime [milliseconds timezone
                    year month day hour minute second millisecond])
 
+(defrecord EzInterval [start end])
+
+(defprotocol EzFormatProtocol
+  (format [instant] [instant to]))
+
+(defprotocol EzConvertProtocol
+  (convert [instant] [instant to] [instant to tz]))
+
+(extend-protocol EzConvertProtocol
+  java.lang.Long
+  (convert
+    ([instant] (convert instant EzTime nil))
+    ([instant to] (convert instant to nil))
+    ([instant to tz]
+       (case to
+         (map->EzTime (assoc (util/long-to-map instant)
+                        :timezone tz))))))
+
+(defprotocol EzParseControl
+  (parse [instant fmt]))
+
+
+
 (extend-protocol EzTimeProtocol
   EzTime
-  (year [obj] (:year obj))
-  (month [obj] (:month obj))
-  (day [obj] (:day obj))
-  (hour [obj] (:hour obj))
-  (minute [obj] (:minute obj))
-  (second [obj] (:second obj))
-  (millisecond [obj] (:millisecond obj))
+  (year [instant] (:year instant))
+  (month [instant] (:month instant))
+  (day [instant] (:day instant))
+  (hour [instant] (:hour instant))
+  (minute [instant] (:minute instant))
+  (second [instant] (:second instant))
+  (millisecond [instant] (:millisecond instant))
+  (raw-milliseconds [instant] (:milliseconds instant))
 
   (after? [a b] (if (and (:tz a) (:tz b))
                   (> (+ (-> a :tz :milliseconds)
@@ -67,78 +103,13 @@
                          (:millisecond a))
                       (+ (-> b :tz :milliseconds)
                          (:milliseconds b)))
-                   (< (:millisecond a) (:milliseconds b))))
-  (plus [obj period] obj)
-  (minus [obj period] obj)
-  (leap? [obj] (util/leap? (:year obj)))
+                   (< (:milliseconds a) (:milliseconds b))))
+  (plus [instant period]
+    (+ (raw-milliseconds instant)
+       (get-milliseconds period instant)))
+  (minus [instant period] instant)
+  (leap? [instant] (util/leap? (:year instant)))
   )
-
-
-
-;; (extend-protocol EzTimeProtocol
-;;   org.joda.time.DateTime
-;;   (year [obj] (.getYear obj))
-;;   (month [obj] (.getMonthOfYear obj))
-;;   (day [obj] (.getDayOfMonth obj))
-;;   (hour [obj] (.getHourOfDay obj))
-;;   (minute [obj] (.getMinuteOfHour obj))
-;;   (second [obj] (.getSecondOfMinute obj))
-;;   (millisecond [obj] (.getMillisOfSecond obj))
-;;   (after? [a b] (.isAfter a b))
-;;   (before? [a b] (.isBefore a b))
-;;   (plus [obj period] (.plus obj period))
-;;   (minus [obj period] (.minus obj period))
-;;   (leap? [obj] (.isLeap (.year obj)))
-
-;;   org.joda.time.DateMidnight
-;;   (year [obj] (.getYear obj))
-;;   (month [obj] (.getMonthOfYear obj))
-;;   (day [obj] (.getDayOfMonth obj))
-;;   (hour [obj] (.getHourOfDay obj))
-;;   (minute [obj] (.getMinuteOfHour obj))
-;;   (second [obj] (.getSecondOfMinute obj))
-;;   (millisecond [obj] (.getMillisOfSecond obj))
-;;   (after? [a b] (.isAfter a b))
-;;   (before? [a b] (.isBefore a b))
-;;   (plus [obj period] (.plus obj period))
-;;   (minus [obj period] (.minus obj period))
-;;   (leap? [obj] (.isLeap (.year obj)))
-
-;;   org.joda.time.LocalDateTime
-;;   (year [obj] (.getYear obj))
-;;   (month [obj] (.getMonthOfYear obj))
-;;   (day [obj] (.getDayOfMonth obj))
-;;   (hour [obj] (.getHourOfDay obj))
-;;   (minute [obj] (.getMinuteOfHour obj))
-;;   (second [obj] (.getSecondOfMinute obj))
-;;   (millisecond [obj] (.getMillisOfSecond obj))
-;;   (after? [a b] (.isAfter a b))
-;;   (before? [a b] (.isBefore a b))
-;;   (plus [obj period] (.plus obj period))
-;;   (minus [obj period] (.minus obj period))
-;;   (leap? [obj] (.isLeap (.year obj)))
-
-;;   org.joda.time.YearMonth
-;;   (year [obj] (.getYear obj))
-;;   (month [obj] (.getMonthOfYear obj))
-;;   (after? [a b] (.isAfter a b))
-;;   (before? [a b] (.isBefore a b))
-;;   (plus [obj period] (.plus obj period))
-;;   (minus [obj period] (.minus obj period))
-;;   (leap? [obj] (.isLeap (.year obj)))
-
-;;   org.joda.time.LocalDate
-;;   (year [obj] (.getYear obj))
-;;   (month [obj] (.getMonthOfYear obj))
-;;   (day [obj] (.getDayOfMonth obj))
-;;   (after? [a b] (.isAfter a b))
-;;   (before? [a b] (.isBefore a b))
-;;   (plus [obj period] (.plus obj period))
-;;   (minus [obj period] (.minus obj period))
-;;   (leap? [obj] (.isLeap (.year obj))))
-
-
-
 
 (defmulti datetime (fn [& args] (type (last args))))
 (defmethod datetime ez_time.timezone.TimeZone
@@ -185,3 +156,13 @@
                  (* second 1000)
                  millisecond) nil
                  year month day hour minute second millisecond)))
+
+(defn period
+  "data -> map with keys 'year month month-rest week day hour
+minute second millisecond'"
+  [data]
+  (map->EzPeriod data))
+
+(defn interval
+  [start end]
+  (map->EzInterval {:start start :end end}))
