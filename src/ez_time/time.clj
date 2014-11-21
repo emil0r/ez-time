@@ -15,7 +15,7 @@
   (minutes [period])
   (seconds [period])
   (milliseconds [period])
-  (get-milliseconds [period instant]))
+  (get-milliseconds [period instant direction]))
 
 (defprotocol EzTimeProtocol
   (year [instant])
@@ -33,7 +33,7 @@
   (minus [instant period] [instant period perodic?])
   (leap? [instant]))
 
-(defrecord EzPeriod [years months month-rest weeks days hours minutes seconds milliseconds]
+(defrecord EzPeriod [years months weeks days hours minutes seconds milliseconds]
   EzPeriodProtocol
   (years [period] (:years period))
   (months [period] (:months period))
@@ -42,29 +42,35 @@
   (minutes [period] (:minutes period))
   (seconds [period] (:seconds period))
   (milliseconds [period] (:milliseconds period))
-  (get-milliseconds [{:keys [years months month-rest weeks days
-                             hours minutes seconds milliseconds]}
-                     instant]
+  (get-milliseconds
+    [{:keys [years months weeks days
+             hours minutes seconds milliseconds]}
+     instant direction]
     (+ (* 31536000000 (or years 0))
        ;; add leap days
        (if years
          (* 86400000
-            (util/leap-days (year instant) years))
+            (if (= direction :plus)
+              (util/leap-days (year instant) years)
+              (util/leap-days (- (year instant) years) (year instant))))
          0)
        (if months
-         (loop [days 0
-                year (year instant)
-                [month & months] (map #(inc (mod % 12))
-                                      (range (dec (month instant))
-                                             (+ (dec (month instant)) months)))]
-           (if (nil? month)
-             (* days util/ms-per-day)
-             (recur (+ days (util/month->days year month))
-                    (cond
-                     (= days 0) year
-                     (= month 1) (inc year)
-                     :else year)
-                    months)))
+         (let [months (if (= direction :plus)
+                        (range (dec (month instant))
+                               (+ (dec (month instant)) months))
+                        (range (dec (- (month instant) months))
+                               1))]
+          (loop [days 0
+                 year (year instant)
+                 [month & months] (map #(inc (mod % 12)) months)]
+            (if (nil? month)
+              (* days util/ms-per-day)
+              (recur (+ days (util/month->days year month))
+                     (cond
+                      (= days 0) year
+                      (= month 1) (inc year)
+                      :else year)
+                     months))))
          0)
        (* 604800000 (or weeks 0))
        (* 86400000 (or days 0))
@@ -124,10 +130,10 @@
                    (< (:milliseconds a) (:milliseconds b))))
   (plus [instant period]
     (convert (+ (raw instant)
-                (get-milliseconds period instant)) EzTime (:tz instant)))
+                (get-milliseconds period instant :plus)) EzTime (:tz instant)))
   (minus [instant period]
     (convert (- (raw instant)
-                (get-milliseconds period instant)) EzTime (:tz instant)))
+                (get-milliseconds period instant :minus)) EzTime (:tz instant)))
   (leap? [instant] (util/leap? (:year instant))))
 
 (defmulti datetime (fn [& args] (type (last args))))
@@ -181,8 +187,7 @@
                  year month day hour minute second millisecond)))
 
 (defn period
-  "data -> map with keys 'year month month-rest week day hour
-minute second millisecond'"
+  "data -> map with keys 'years months weeks days hours minutes seconds milliseconds'"
   [data]
   (map->EzPeriod data))
 

@@ -68,14 +68,16 @@
  (fact "year"
        (time/get-milliseconds
         (time/period {:years 6})
-        (time/datetime 2011))
+        (time/datetime 2011)
+        :plus)
        ;; 2 leap years and 4 common years
        => (+ (* 2 366 24 3600 1000)
              (* 4 365 24 3600 1000)))
  (fact "month"
        (time/get-milliseconds
         (time/period {:months 5})
-        (time/datetime 2011 1 4))
+        (time/datetime 2011 1 4)
+        :plus)
        => (+
            ;; remainder of january, 4th of january
            ;; is included
@@ -91,27 +93,32 @@
  (fact "week"
        (time/get-milliseconds
         (time/period {:weeks 6})
-        (time/now))
+        (time/now)
+        :plus)
        => (* 6 7 24 3600 1000))
  (fact "day"
        (time/get-milliseconds
         (time/period {:days 1})
-        (time/now))
+        (time/now)
+        :plus)
        => (* 24 3600 1000))
  (fact "hour"
        (time/get-milliseconds
         (time/period {:hours 2})
-        (time/now))
+        (time/now)
+        :plus)
        => (* 2 3600 1000))
  (fact "minute"
        (time/get-milliseconds
         (time/period {:minutes 699})
-        (time/now))
+        (time/now)
+        :plus)
        => (* 699 60 1000))
  (fact "second"
        (time/get-milliseconds
         (time/period {:seconds 2})
-        (time/now))
+        (time/now)
+        :plus)
        => (* 2 1000)))
 
 
@@ -137,6 +144,44 @@
              dt (time/datetime 2011 2 3 4 5 6 789)]
          (date-components (time/plus dt period)))
        => [2014 6 3 4 5 6 789])
+ (fact "4 hours"
+       (let [period (time/period {:hours 4})
+             dt (time/datetime 2014 1 1)]
+         (time/hour (time/plus dt period)))
+       => 4)
+ (fact "59 minutes"
+       (let [period (time/period {:minutes 59})
+             dt (time/datetime 2014 1 1)]
+         (time/minute (time/plus dt period)))
+       => 59)
+ (fact "59 seconds"
+       (let [period (time/period {:seconds 59})
+             dt (time/datetime 2014 1 1)]
+         (time/second (time/plus dt period)))
+       => 59)
+ (fact "go past a year"
+       (let [period (time/period {:months 11 :days 30 :weeks 1})
+             dt (time/datetime 2013 1 1)]
+         (time/year (time/plus dt period)))
+       => 2014))
+
+(fact
+ "subtraction"
+ (fact "3 days"
+       (let [period (time/period {:days 3})
+             dt (time/datetime 2014 1 1)]
+         (time/day (time/minus dt period)))
+       => 29)
+ (fact "40 days"
+       (let [period (time/period {:days 40})
+             dt (time/datetime 2014 1 1)]
+         (time/day (time/minus dt period)))
+       => 22)
+ (fact "40 months"
+       (let [period (time/period {:months 40})
+             dt (time/datetime 2011 2 3 4 5 6 789)]
+         (date-components (time/minus dt period)))
+       => [2007 10 3 4 5 6 789])
  (fact "4 hours"
        (let [period (time/period {:hours 4})
              dt (time/datetime 2014 1 1)]
