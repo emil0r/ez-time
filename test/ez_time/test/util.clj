@@ -7,7 +7,7 @@
 (fact
  "leap-days from 1970"
  ;; leap years => 1972, 1976, 1980, 1984, 1988, 1992, 1996, 2000, 2004, 2008
- ;; a total of 10
+ ;; a total of 11
  (fact
   "2014 AD"
   (util/leap-days 2014) => 11)
@@ -42,8 +42,48 @@
    (util/ms->year (.getTime date)) => 2014))
 
 (fact
+ "month->ms"
+ (let [dt-ms (.getTime #inst "2014-01-01")
+       dt-1 (.getTime #inst "2014-01-01")
+       dt-2 (.getTime #inst "2014-02-01")
+       dt-3 (.getTime #inst "2014-03-01")
+       dt-4 (.getTime #inst "2014-04-01")
+       dt-5 (.getTime #inst "2014-05-01")
+       dt-6 (.getTime #inst "2014-06-01")
+       dt-7 (.getTime #inst "2014-07-01")
+       dt-8 (.getTime #inst "2014-08-01")
+       dt-9 (.getTime #inst "2014-09-01")
+       dt-10 (.getTime #inst "2014-10-01")
+       dt-11 (.getTime #inst "2014-11-01")
+       dt-12 (.getTime #inst "2014-12-01")]
+   (fact "january"
+         (+ dt-ms (util/month->ms 2014 1)) => dt-1)
+   (fact "february"
+         (+ dt-ms (util/month->ms 2014 2)) => dt-2)
+   (fact "march"
+         (+ dt-ms (util/month->ms 2014 3)) => dt-3)
+   (fact "april"
+         (+ dt-ms (util/month->ms 2014 4)) => dt-4)
+   (fact "may"
+         (+ dt-ms (util/month->ms 2014 5)) => dt-5)
+   (fact "june"
+         (+ dt-ms (util/month->ms 2014 6)) => dt-6)
+   (fact "july"
+         (+ dt-ms (util/month->ms 2014 7)) => dt-7)
+   (fact "august"
+         (+ dt-ms (util/month->ms 2014 8)) => dt-8)
+   (fact "september"
+         (+ dt-ms (util/month->ms 2014 9)) => dt-9)
+   (fact "october"
+         (+ dt-ms (util/month->ms 2014 10)) => dt-10)
+   (fact "november"
+         (+ dt-ms (util/month->ms 2014 11)) => dt-11)
+   (fact "december"
+         (+ dt-ms (util/month->ms 2014 12)) => dt-12)))
+
+(fact
  "year->ms"
- (util/year->ms 2014) => (* 1000 24 3600 (+ (* 33 365) (* 11 366))))
+ (util/year->ms 2014) => (.getTime #inst "2014-01-01"))
 
 (fact
  "ms->month"

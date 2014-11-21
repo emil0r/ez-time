@@ -16,14 +16,19 @@
 
 
 (defn leap-days
-  "Number of leap days with 1970 as the origo"
-  [year]
-  (let [year (Math/abs year)]
-    (Math/abs
-     (- (+ (long (/ year 4)) (long (/ year 400)))
-        (long (/ year 100))
-        477 ;; number of leap-days from 0 AD
-        ))))
+  "Number of leap days with 1970 as the origo or number of leap days
+between instant and number of years"
+  ([year]
+     (let [year (Math/abs year)]
+       (Math/abs
+        (- (+ (long (/ year 4)) (long (/ year 400)))
+           (long (/ year 100))
+           477 ;; number of leap-days from 0 AD
+           ))))
+  ([year num-years]
+     (count (filter leap?
+                    (range (inc year)
+                           (inc (+ year num-years)))))))
 
 (defn get-days
   "Get days since origo"
@@ -40,8 +45,37 @@
     (* (get-days year) ms-per-day)
     (* (get-days year) -1 ms-per-day)))
 
+(defn month->days [year month]
+  (if (leap? year)
+    (case month
+      12 31
+      11 30
+      10 31
+      9 30
+      8 31
+      7 31
+      6 30
+      5 31
+      4 30
+      3 31
+      2 29
+      31)
+    (case month
+      12 31
+      11 30
+      10 31
+      9 30
+      8 31
+      7 31
+      6 30
+      5 31
+      4 30
+      3 31
+      2 28
+      31)))
+
 (defn month->ms
-  "Get many milliseconds is needed in order to start at the beginning of the month"
+  "Get how many milliseconds is needed in order to start at the beginning of the month"
   [year month]
   (if (leap? year)
     (case month

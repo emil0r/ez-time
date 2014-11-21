@@ -17,6 +17,22 @@
   (milliseconds [period])
   (get-milliseconds [period instant]))
 
+(defprotocol EzTimeProtocol
+  (year [instant])
+  (month [instant])
+  (day [instant])
+  (hour [instant])
+  (minute [instant])
+  (second [instant])
+  (millisecond [instant])
+  (raw [instant])
+
+  (after? [a b])
+  (before? [a b])
+  (plus [instant period] [instant period perodic?])
+  (minus [instant period] [instant period perodic?])
+  (leap? [instant]))
+
 (defrecord EzPeriod [years months month-rest weeks days hours minutes seconds milliseconds]
   EzPeriodProtocol
   (years [period] (:years period))
@@ -26,42 +42,41 @@
   (minutes [period] (:minutes period))
   (seconds [period] (:seconds period))
   (milliseconds [period] (:milliseconds period))
-  (get-milliseconds [{:keys [year month month-rest week day
-                             hour minute second millisecond]
-                      :or {year 0, month 0, week 0, day 0,
-                           hour 0, minute 0, second 0, millisecond 0}}
+  (get-milliseconds [{:keys [years months month-rest weeks days
+                             hours minutes seconds milliseconds]}
                      instant]
-    (+ (* 365 24 3600000 year)
-       (* 7 24 3600000 week)
-       (* 24 3600000 day)
-       (* 3600000 hour)
-       (* 60000 minute)
-       (* 1000 second)
-       millisecond)))
-
-(defprotocol EzTimeProtocol
-  (year [instant])
-  (month [instant])
-  (day [instant])
-  (hour [instant])
-  (minute [instant])
-  (second [instant])
-  (millisecond [instant])
-  (raw-milliseconds [instant])
-
-  (after? [a b])
-  (before? [a b])
-  (plus [instant period] [instant period perodic?])
-  (minus [instant period] [instant period perodic?])
-  (leap? [instant]))
+    (+ (* 31536000000 (or years 0))
+       ;; add leap days
+       (if years
+         (* 86400000
+            (util/leap-days (year instant) years))
+         0)
+       (if months
+         (loop [days 0
+                year (year instant)
+                [month & months] (map #(inc (mod % 12))
+                                      (range (dec (month instant))
+                                             (+ (dec (month instant)) months)))]
+           (if (nil? month)
+             (* days util/ms-per-day)
+             (recur (+ days (util/month->days year month))
+                    (cond
+                     (= days 0) year
+                     (= month 1) (inc year)
+                     :else year)
+                    months)))
+         0)
+       (* 604800000 (or weeks 0))
+       (* 86400000 (or days 0))
+       (* 3600000 (or hours 0))
+       (* 60000 (or minutes 0))
+       (* 1000 (or seconds 0))
+       (or milliseconds 0))))
 
 (defrecord EzTime [milliseconds timezone
                    year month day hour minute second millisecond])
 
 (defrecord EzInterval [start end])
-
-(defprotocol EzFormatProtocol
-  (format [instant] [instant to]))
 
 (defprotocol EzConvertProtocol
   (convert [instant] [instant to] [instant to tz]))
@@ -75,6 +90,9 @@
        (case to
          (map->EzTime (assoc (util/long-to-map instant)
                         :timezone tz))))))
+
+(defprotocol EzFormatProtocol
+  (format [instant] [instant to]))
 
 (defprotocol EzParseControl
   (parse [instant fmt]))
@@ -90,7 +108,7 @@
   (minute [instant] (:minute instant))
   (second [instant] (:second instant))
   (millisecond [instant] (:millisecond instant))
-  (raw-milliseconds [instant] (:milliseconds instant))
+  (raw [instant] (:milliseconds instant))
 
   (after? [a b] (if (and (:tz a) (:tz b))
                   (> (+ (-> a :tz :milliseconds)
@@ -105,11 +123,12 @@
                          (:milliseconds b)))
                    (< (:milliseconds a) (:milliseconds b))))
   (plus [instant period]
-    (+ (raw-milliseconds instant)
-       (get-milliseconds period instant)))
-  (minus [instant period] instant)
-  (leap? [instant] (util/leap? (:year instant)))
-  )
+    (convert (+ (raw instant)
+                (get-milliseconds period instant)) EzTime (:tz instant)))
+  (minus [instant period]
+    (convert (- (raw instant)
+                (get-milliseconds period instant)) EzTime (:tz instant)))
+  (leap? [instant] (util/leap? (:year instant))))
 
 (defmulti datetime (fn [& args] (type (last args))))
 (defmethod datetime ez_time.timezone.TimeZone
@@ -128,7 +147,9 @@
   ([year month day hour minute second millisecond tz]
      (EzTime. (+ (util/year->ms year)
                  (util/month->ms year month)
-                 (* day 24 3600 1000)
+                 ;; days are 1-indexed, but
+                 ;; we calculate as 0-indexed
+                 (* (dec day) 24 3600 1000)
                  (* hour 3600 1000)
                  (* minute 60 1000)
                  (* second 1000)
@@ -150,7 +171,9 @@
   ([year month day hour minute second millisecond]
      (EzTime. (+ (util/year->ms year)
                  (util/month->ms year month)
-                 (* day 24 3600 1000)
+                 ;; days are 1-indexed, but
+                 ;; we calculate as 0-indexed
+                 (* (dec day) 24 3600 1000)
                  (* hour 3600 1000)
                  (* minute 60 1000)
                  (* second 1000)
@@ -166,3 +189,7 @@ minute second millisecond'"
 (defn interval
   [start end]
   (map->EzInterval {:start start :end end}))
+
+
+(defn now []
+  (convert 0))
