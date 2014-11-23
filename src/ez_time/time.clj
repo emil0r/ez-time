@@ -3,6 +3,7 @@
             [clojure.string :as str]
             [ez-time.timezone :as tz]
             [ez-time.util :as util])
+  (:import [java.util TimeZone])
   (:refer-clojure :exclude [max min format second]))
 
 
@@ -20,15 +21,20 @@
 (defprotocol EzTimeProtocol
   (year [instant])
   (month [instant])
+  (week [instant])
   (day [instant])
   (hour [instant])
   (minute [instant])
   (second [instant])
   (millisecond [instant])
   (raw [instant])
+  (raw+ [instant])
 
   (after? [a b])
   (before? [a b])
+  (equals? [a b])
+  (same-tz? [a b])
+  (within? [instant interval] [instant a b])
   (plus [instant period] [instant period perodic?])
   (minus [instant period] [instant period perodic?])
   (leap? [instant]))
@@ -55,22 +61,30 @@
               (util/leap-days (- (year instant) years) (year instant))))
          0)
        (if months
-         (let [months (if (= direction :plus)
-                        (range (dec (month instant))
-                               (+ (dec (month instant)) months))
-                        (range (dec (- (month instant) months))
-                               1))]
-          (loop [days 0
-                 year (year instant)
-                 [month & months] (map #(inc (mod % 12)) months)]
-            (if (nil? month)
-              (* days util/ms-per-day)
-              (recur (+ days (util/month->days year month))
-                     (cond
-                      (= days 0) year
-                      (= month 1) (inc year)
-                      :else year)
-                     months))))
+         ;; - count number of days for the months involved
+         ;; - keep track of the year so we can get the extra day for leap years
+         ;; - if we are going forward in time (plus) we start with the
+         ;; range of months from the month of the year all the way up to
+         ;; the number of months wished for. if it's going back in time
+         ;; we start from the end position and work ourselves up to the
+         ;; month of the year given
+         ;; - we go to a 0-indexed range for the benefit of modulus and
+         ;; then increase all the numbers in the range by 1 to go back
+         ;; to a 1-indexed range
+         (loop [days 0
+                year (year instant)
+                [month & months] (map #(inc (mod % 12))
+                                      (if (= direction :plus)
+                                        (range (dec (month instant)), (+ (dec (month instant)) months))
+                                        (range (dec (- (month instant) months)), 1)))]
+           (if (nil? month)
+             (* days util/ms-per-day)
+             (recur (+ days (util/month->days year month))
+                    (cond
+                     (= days 0) year
+                     (= month 1) (inc year)
+                     :else year)
+                    months)))
          0)
        (* 604800000 (or weeks 0))
        (* 86400000 (or days 0))
@@ -82,7 +96,34 @@
 (defrecord EzTime [milliseconds timezone
                    year month day hour minute second millisecond])
 
-(defrecord EzInterval [start end])
+(defprotocol EzIntervalProtocol
+  (overlap? [a b])
+  (abut? [a b]))
+
+(defrecord EzInterval [a b]
+  EzIntervalProtocol
+  (overlap? [a b]
+    (let [[a1 a2] (sort < (map raw+ (map #(% a) [:a :b])))
+          [b1 b2] (sort < (map raw+ (map #(% b) [:a :b])))]
+      ;; at least one point has to be within the two points of the other
+      ;; interval
+      (or (and (> a1 b1)
+               (< a1 b2))
+          (and (> a2 b1)
+               (< a2 b2))
+          (and (> b1 a1)
+               (< b1 a2))
+          (and (> b2 a1)
+               (< b2 a2)))))
+  (abut? [a b]
+    (let [[a1 a2] (sort < (map raw+ (map #(% a) [:a :b])))
+          [b1 b2] (sort < (map raw+ (map #(% b) [:a :b])))]
+      (and
+       ;; the edges have to touch
+       (or (= a1 b2)
+           (= b1 a2))
+       ;; and there can be no overlap
+       (not (overlap? a b))))))
 
 (defprotocol EzConvertProtocol
   (convert [instant] [instant to] [instant to tz]))
@@ -95,12 +136,21 @@
     ([instant to tz]
        (case to
          (map->EzTime (assoc (util/long-to-map instant)
-                        :timezone tz))))))
+                        :timezone tz)))))
+  EzTime
+  (convert
+    ([instant] (convert instant EzTime nil))
+    ([instant to] (convert instant to nil))
+    ([instant to tz]
+       (case to
+         (if tz
+           (assoc instant :timezone tz)
+           instant)))))
 
 (defprotocol EzFormatProtocol
   (format [instant] [instant to]))
 
-(defprotocol EzParseControl
+(defprotocol EzParseProtocol
   (parse [instant fmt]))
 
 
@@ -109,31 +159,48 @@
   EzTime
   (year [instant] (:year instant))
   (month [instant] (:month instant))
+  (week [instant] :not-implemented-yet)
   (day [instant] (:day instant))
   (hour [instant] (:hour instant))
   (minute [instant] (:minute instant))
   (second [instant] (:second instant))
   (millisecond [instant] (:millisecond instant))
   (raw [instant] (:milliseconds instant))
+  (raw+ [instant] (+ (:milliseconds instant)
+                     (get-in instant [:timezone :milliseconds] 0)))
 
-  (after? [a b] (if (and (:tz a) (:tz b))
-                  (> (+ (-> a :tz :milliseconds)
-                        (:milliseconds a))
-                     (+ (-> b :tz :milliseconds)
-                        (:milliseconds b)))
-                  (> (:milliseconds a) (:milliseconds b))))
-  (before? [a b] (if (and (:tz a) (:tz b))
-                   (< (+ (-> a :tz :milliseconds)
-                         (:millisecond a))
-                      (+ (-> b :tz :milliseconds)
-                         (:milliseconds b)))
-                   (< (:milliseconds a) (:milliseconds b))))
-  (plus [instant period]
-    (convert (+ (raw instant)
-                (get-milliseconds period instant :plus)) EzTime (:tz instant)))
-  (minus [instant period]
-    (convert (- (raw instant)
-                (get-milliseconds period instant :minus)) EzTime (:tz instant)))
+  (after? [a b] (> (raw+ a) (raw+ b)))
+  (before? [a b] (< (raw+ a) (raw+ b)))
+  (equals? [a b] (= (raw+ a) (raw+ b)))
+  (same-tz? [a b] (= (:timezone a) (:timezone b)))
+  (within?
+    ([instant interval]
+       (within? instant (:a interval) (:b interval)))
+    ([instant a b]
+       (let [[a b] (sort #(< (raw+ %) (raw+ %2)) [a b])]
+         (and (>= (raw+ instant)
+                  (raw+ a))
+              (<= (raw+ instant)
+                  (raw+ b))))))
+  (plus
+    ([instant period]
+       (convert (+ (raw instant)
+                   (get-milliseconds period instant :plus)) EzTime (:tz instant)))
+    ([instant period periodic?]
+       (if periodic?
+         (cons (plus instant period)
+               (lazy-seq (plus (plus instant period) period true)))
+         (plus instant period))))
+  (minus
+    ([instant period]
+       (convert (- (raw instant)
+                   (get-milliseconds period instant :minus)) EzTime (:tz instant)))
+
+    ([instant period periodic?]
+       (if periodic?
+         (cons (minus instant period)
+               (lazy-seq (minus (minus instant period) period true)))
+         (minus instant period))))
   (leap? [instant] (util/leap? (:year instant))))
 
 (defmulti datetime (fn [& args] (type (last args))))
@@ -191,10 +258,17 @@
   [data]
   (map->EzPeriod data))
 
-(defn interval
-  [start end]
-  (map->EzInterval {:start start :end end}))
+(defn interval [a b]
+  (map->EzInterval {:a a :b b}))
 
 
-(defn now []
-  (convert 0))
+(defn now
+  ([]
+     (now false))
+  ([tz?]
+     (if tz?
+       (convert (System/currentTimeMillis)
+                EzTime
+                (tz/timezone (.. TimeZone getDefault getID)))
+       (convert (+ (System/currentTimeMillis)
+                   (:milliseconds (tz/timezone (.. TimeZone getDefault getID))))))))

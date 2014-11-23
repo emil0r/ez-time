@@ -1,6 +1,7 @@
 (ns ez-time.test.time
   (:require [midje.sweet :refer :all]
-            [ez-time.time :as time]))
+            [ez-time.time :as time]
+            [ez-time.timezone :as tz]))
 
 
 
@@ -51,6 +52,8 @@
          (time/year ez-date) => 2014)
    (fact "month"
          (time/month ez-date) => 11)
+   (fact "week"
+         (time/week ez-date) => 47)
    (fact "day"
          (time/day ez-date) => 17)
    (fact "hour"
@@ -257,3 +260,99 @@
          (map #(% added) [time/year time/month time/day time/hour
                           time/minute time/second time/millisecond]))
        => [2020 1 1 0 0 0 0]))
+
+(fact "equals?"
+      (let [a (time/datetime 2014 5 4 23 4 56 (tz/timezone "UTC+01:00"))
+            b (time/datetime 2014 5 4 23 4 56 (tz/timezone "UTC+01:00"))]
+        (time/equals? a b))
+      => true)
+
+(fact "same-tz?"
+      (let [a (time/datetime 2014 5 4 23 4 56 (tz/timezone "UTC+01:00"))
+            b (time/datetime 2014 5 4 23 4 56 (tz/timezone "UTC+02:00"))]
+        (time/same-tz? a b))
+      => false)
+
+
+(fact
+ "periodic"
+ (fact "plus"
+       (let [dates (take 3 (time/plus
+                            (time/datetime 2014)
+                            (time/period {:days 1})
+                            true))]
+         (map time/day dates))
+       => [2 3 4])
+ (fact "minus"
+       (let [dates (take 3 (time/minus
+                            (time/datetime 2014)
+                            (time/period {:days 1})
+                            true))]
+         (map time/day dates))
+       => [31 30 29]))
+
+(fact
+ "interval"
+ (fact "within?"
+       (let [instant (time/datetime 2014 1 2)
+             interval (time/interval
+                       (time/datetime 2014 1 3)
+                       (time/datetime 2014 1 1))]
+         (time/within? instant interval))
+       => true)
+ (fact "overlap?"
+       (fact "partly"
+             (let [a (time/interval
+                      (time/datetime 2014 1 3)
+                      (time/datetime 2014 1 1))
+                   b (time/interval
+                      (time/datetime 2014 1 2)
+                      (time/datetime 2014 1 3))]
+               (time/overlap? a b))
+             => true)
+       (fact "completely"
+             (let [a (time/interval
+                      (time/datetime 2014 1 4)
+                      (time/datetime 2014 1 1))
+                   b (time/interval
+                      (time/datetime 2014 1 2)
+                      (time/datetime 2014 1 3))]
+               (time/overlap? a b))
+             => true)
+       (fact "no overlap"
+             (let [a (time/interval
+                      (time/datetime 2014 1 4)
+                      (time/datetime 2014 1 1))
+                   b (time/interval
+                      (time/datetime 2014 1 4)
+                      (time/datetime 2014 1 5))]
+               (time/overlap? a b))
+             => false))
+ (fact "abut?"
+       (fact "true"
+             (let [a (time/interval
+                      (time/datetime 2014 1 3)
+                      (time/datetime 2014 1 1))
+                   b (time/interval
+                      (time/datetime 2014 1 3)
+                      (time/datetime 2014 1 4))]
+               (time/abut? a b))
+             => true)
+       (fact "false, actually overlaps"
+             (let [a (time/interval
+                      (time/datetime 2014 1 3)
+                      (time/datetime 2014 1 1))
+                   b (time/interval
+                      (time/datetime 2014 1 2)
+                      (time/datetime 2014 1 4))]
+               (time/abut? a b))
+             => false)
+       (fact "false, completeley separate"
+             (let [a (time/interval
+                      (time/datetime 2014 1 3)
+                      (time/datetime 2014 1 1))
+                   b (time/interval
+                      (time/datetime 2014 1 4)
+                      (time/datetime 2014 1 5))]
+               (time/abut? a b))
+             => false)))

@@ -22,7 +22,10 @@
         (let [[hour minute second] (map #(Long/parseLong %) (str/split (str/trim offset) #":"))]
          {:hour hour
           :minute (or minute 0)
-          :second (or second 0)}))))
+          :second (or second 0)
+          :milliseconds (+ (* 3600 1000 hour)
+                           (* 60 1000 (or minute 0))
+                           (* 1000 (or second 0)))}))))
 
 (defn- read-timezones []
   (let [filenames ["africa" "northamerica" "southamerica" "europe" "asia"
