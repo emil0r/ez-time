@@ -22,6 +22,7 @@
   (year [instant])
   (month [instant])
   (week [instant])
+  (weekday [instant])
   (day [instant])
   (hour [instant])
   (minute [instant])
@@ -159,7 +160,16 @@
   EzTime
   (year [instant] (:year instant))
   (month [instant] (:month instant))
-  (week [instant] :not-implemented-yet)
+  (week [instant]
+    (let [day (weekday instant)]
+      day))
+  (weekday [instant]
+    ;; 1970-01-01 is weekday 4, a Thursday
+    (let [instant (raw+ instant)
+          days-since-epoch (long (/ instant util/ms-per-day))]
+      (if (< days-since-epoch -3)
+        (inc (mod (+ 2 days-since-epoch) 7))
+        (inc (mod (+ 3 days-since-epoch) 7)))))
   (day [instant] (:day instant))
   (hour [instant] (:hour instant))
   (minute [instant] (:minute instant))

@@ -65,6 +65,40 @@
    (fact "millisecond"
          (time/millisecond ez-date) => 247)))
 
+(fact
+ "weekday"
+ (fact "2012, 21 oct, wednesday"
+       (time/weekday (time/datetime 2012 11 21)) => 4)
+ (fact "1780, 7 feb, monday"
+       (time/weekday (time/datetime 1780 2 7)) => 1)
+ (fact "1780, 8 feb, tuesday"
+       (time/weekday (time/datetime 1780 2 8)) => 2)
+ (fact "1780, 9 feb, wednesday"
+       (time/weekday (time/datetime 1780 2 9)) => 3)
+ (fact "1780, 10 feb, thursday"
+       (time/weekday (time/datetime 1780 2 10)) => 4)
+ (fact "1780, 11 feb, friday"
+       (time/weekday (time/datetime 1780 2 11)) => 5)
+ (fact "1780, 12 feb, saturday"
+       (time/weekday (time/datetime 1780 2 12)) => 6)
+ (fact "2050, 13 mar, sunday"
+       (time/weekday (time/datetime 2050 3 13)) => 7)
+ (fact "monday"
+       (time/weekday (time/datetime 2014 11 24)) => 1)
+ (fact "tuesday"
+       (time/weekday (time/datetime 2014 11 25)) => 2)
+ (fact "wednesday"
+       (time/weekday (time/datetime 2014 11 26)) => 3)
+ (fact "thursday"
+       (time/weekday (time/datetime 2014 11 27)) => 4)
+ (fact "friday"
+       (time/weekday (time/datetime 2014 11 28)) => 5)
+ (fact "saturday"
+       (time/weekday (time/datetime 2014 11 29)) => 6)
+ (fact "sunday"
+       (time/weekday (time/datetime 2014 11 30)) => 7))
+
+
 
 (fact
  "get-milliseconds for period"
