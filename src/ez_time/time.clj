@@ -161,8 +161,25 @@
   (year [instant] (:year instant))
   (month [instant] (:month instant))
   (week [instant]
-    (let [day (weekday instant)]
-      day))
+    (let [ordinal (+ (:day instant)
+                     (if (util/leap? (:year instant))
+                       1
+                       0)
+                     (get {1 0
+                           2 31
+                           3 59
+                           4 90
+                           5 120
+                           6 151
+                           7 181
+                           8 212
+                           9 243
+                           10 273
+                           11 304
+                           12 334} (:month instant)))
+          week (long (/ (+ 10 (- ordinal (weekday instant)))
+                        7))]
+      week))
   (weekday [instant]
     ;; 1970-01-01 is weekday 4, a Thursday
     (let [instant (raw+ instant)
