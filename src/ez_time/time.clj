@@ -136,8 +136,32 @@
     ([instant to] (convert instant to nil))
     ([instant to tz]
        (case to
+         :java.util.Date (java.util.Date. instant)
+         java.util.Date (java.util.Date. instant)
+         :java.sql.Timestamp (java.sql.Timestamp. instant)
+         java.sql.Timestamp (java.sql.Timestamp. instant)
+         :java.sql.Date (java.sql.Date. instant)
+         java.sql.Date (java.sql.Date. instant)
+         :long instant
+         java.lang.Long instant
+         :epoch (long (/ instant 1000))
          (map->EzTime (assoc (util/long-to-map instant)
                         :timezone tz)))))
+  java.sql.Date
+  (convert
+    ([instant] (convert (.getTime instant) EzTime nil))
+    ([instant to] (convert (.getTime instant) to nil))
+    ([instant to tz] (convert (.getTime instant) to tz)))
+  java.sql.Timestamp
+  (convert
+    ([instant] (convert (.getTime instant) EzTime nil))
+    ([instant to] (convert (.getTime instant) to nil))
+    ([instant to tz] (convert (.getTime instant) to tz)))
+  java.util.Date
+  (convert
+    ([instant] (convert (.getTime instant) EzTime nil))
+    ([instant to] (convert (.getTime instant) to nil))
+    ([instant to tz] (convert (.getTime instant) to tz)))
   EzTime
   (convert
     ([instant] (convert instant EzTime nil))
