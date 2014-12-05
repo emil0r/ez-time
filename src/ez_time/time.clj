@@ -8,7 +8,7 @@
 
 
 
-(defprotocol EzPeriodProtocol
+(defprotocol PeriodProtocol
   (years [period])
   (months [period])
   (weeks [period])
@@ -40,8 +40,8 @@
   (minus [instant period] [instant period perodic?])
   (leap? [instant]))
 
-(defrecord EzPeriod [years months weeks days hours minutes seconds milliseconds]
-  EzPeriodProtocol
+(defrecord Period [years months weeks days hours minutes seconds milliseconds]
+  PeriodProtocol
   (years [period] (:years period))
   (months [period] (:months period))
   (weeks [period] (:weeks period))
@@ -97,12 +97,12 @@
 (defrecord EzTime [milliseconds timezone
                    year month day hour minute second millisecond])
 
-(defprotocol EzIntervalProtocol
+(defprotocol IntervalProtocol
   (overlap? [a b])
   (abut? [a b]))
 
-(defrecord EzInterval [a b]
-  EzIntervalProtocol
+(defrecord Interval [a b]
+  IntervalProtocol
   (overlap? [a b]
     (let [[a1 a2] (sort < (map raw+ (map #(% a) [:a :b])))
           [b1 b2] (sort < (map raw+ (map #(% b) [:a :b])))]
@@ -307,10 +307,10 @@
 (defn period
   "data -> map with keys 'years months weeks days hours minutes seconds milliseconds'"
   [data]
-  (map->EzPeriod data))
+  (map->Period data))
 
 (defn interval [a b]
-  (map->EzInterval {:a a :b b}))
+  (map->Interval {:a a :b b}))
 
 
 (defn now
