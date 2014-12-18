@@ -1,6 +1,7 @@
 (ns ez-time.time
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
+            ez-time.format
             [ez-time.timezone :as tz]
             [ez-time.util :as util])
   (:import [java.util TimeZone])
@@ -177,7 +178,6 @@
 
 (defprotocol EzParseProtocol
   (parse [instant fmt]))
-
 
 
 (extend-protocol EzTimeProtocol
